@@ -155,24 +155,27 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
         label = "Tuning needle"
     )
 
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxHeight < 700.dp
     Column(
         modifier = Modifier.fillMaxSize().background(Background)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 11.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        FishboneHeader("")
-        Spacer(Modifier.height(8.dp))
+        FishboneHeader("", compact)
+        Spacer(Modifier.height(if(compact) 3.dp else 8.dp))
         // Larger centered note and adjacent semitones, as in the approved design.
-        Box(Modifier.fillMaxWidth().height(108.dp)) {
+        Box(Modifier.fillMaxWidth().height(if(compact) 90.dp else 108.dp)) {
             val name = displayMidi?.let(Tunings::name) ?: "—"
             Column(Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(name,
                     color = if (inTune) Green else Color.White,
-                    fontSize = if (name.length > 3) 68.sp else 78.sp,
+                    fontSize = if (name.length > 3) (if(compact) 60.sp else 68.sp)
+                        else (if(compact) 70.sp else 78.sp),
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 82.sp,
+                    lineHeight = if(compact) 72.sp else 82.sp,
                     textAlign = TextAlign.Center)
                 Text(
                     pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) }
@@ -189,9 +192,9 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
                     fontSize = 23.sp, color = Muted)
             }
         }
-        TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune)
+        TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune, compact)
         Spacer(Modifier.height(4.dp))
-        Canvas(Modifier.fillMaxWidth().height(23.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(if(compact) 14.dp else 23.dp)) {
             val y = size.height / 2f
             val mid = size.width / 2f
             drawLine(Color(0xFF3D4044), Offset(0f,y),Offset(size.width,y),1.dp.toPx())
@@ -220,10 +223,10 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
         Text(cents?.let { "%+.1f cents".format(java.util.Locale.US, it) } ?: "— cents",
             color = Color(0xFFD5D5D5), fontSize = 13.sp)
 
-        Spacer(Modifier.height(9.dp))
+        Spacer(Modifier.height(if(compact) 4.dp else 9.dp))
         val tileShape = RoundedCornerShape(11.dp)
         Row(
-            Modifier.fillMaxWidth().height(49.dp)
+            Modifier.fillMaxWidth().height(if(compact) 45.dp else 49.dp)
                 .background(Brush.verticalGradient(listOf(Color(0xFF262528),Color(0xFF121113))),tileShape)
                 .border(1.dp, Color(0xFF383338),tileShape)
                 .padding(horizontal=13.dp),
@@ -256,13 +259,13 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
                 }
             }
         }
-        Spacer(Modifier.height(10.dp))
+        Spacer(Modifier.height(if(compact) 5.dp else 10.dp))
         OutlinedButton(
             onClick = {
                 if (!hasPermission) permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 else listening = !listening
             },
-            modifier = Modifier.fillMaxWidth().height(46.dp),
+            modifier = Modifier.fillMaxWidth().height(if(compact) 42.dp else 46.dp),
             shape = RoundedCornerShape(12.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Red),
             colors = ButtonDefaults.outlinedButtonColors(
@@ -272,9 +275,10 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
             Text(if (listening) "■  STOP LISTENING" else "●  START TUNING",
                 color = Color.White, fontWeight = FontWeight.Bold, letterSpacing=1.sp)
         }
-        Spacer(Modifier.height(8.dp))
+        Spacer(Modifier.height(if(compact) 3.dp else 8.dp))
         Text("A4 = 440 Hz  ·  OFFLINE", color = Muted, fontSize = 10.sp)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(if(compact) 4.dp else 12.dp))
+    }
     }
 
     if (showPresets) {
@@ -314,8 +318,8 @@ private fun StringChip(label: String, selected: Boolean, modifier: Modifier, onC
 }
 
 @Composable
-private fun TuningMeter(cents: Double, active: Boolean, inTune: Boolean) {
-    Canvas(modifier = Modifier.fillMaxWidth().height(136.dp)) {
+private fun TuningMeter(cents: Double, active: Boolean, inTune: Boolean, compact: Boolean = false) {
+    Canvas(modifier = Modifier.fillMaxWidth().height(if(compact) 108.dp else 136.dp)) {
         val cx = size.width / 2f
         val cy = size.height * 0.91f
         val radius = minOf(size.width * 0.46f, size.height * 0.88f)
