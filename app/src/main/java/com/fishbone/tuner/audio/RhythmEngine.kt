@@ -52,7 +52,17 @@ object DrumGrooves {
         DrumGroove("Blues Shuffle", "BLUES", "Triplet shuffle feel", 96,
             hits(0, 7, 8, 15), hits(4, 12), hits(0, 2, 4, 6, 8, 10, 12, 14), swing = 33),
         DrumGroove("Slow Blues", "BLUES", "Laid-back blues", 68,
-            hits(0, 8, 11), hits(4, 12), hits(0, 2, 4, 6, 8, 10, 12, 14), swing = 30)
+            hits(0, 8, 11), hits(4, 12), hits(0, 2, 4, 6, 8, 10, 12, 14), swing = 30),
+        DrumGroove("Doom Crawl", "DOOM", "Crushing, spacious half-time", 56,
+            hits(0, 7, 10), hits(8), hits(0, 4, 8, 12), hits(14)),
+        DrumGroove("Sludge Trudge", "SLUDGE", "Lurching slow groove", 68,
+            hits(0, 3, 10, 14), hits(8), hits(0, 2, 4, 6, 8, 10, 12, 14)),
+        DrumGroove("Thrash Drive", "METAL", "Fast snare-driven thrash", 196,
+            hits(0, 3, 4, 7, 8, 11, 12, 15), hits(2, 6, 10, 14),
+            hits(0, 2, 4, 6, 8, 10, 12, 14)),
+        DrumGroove("Blues Rock", "BLUES", "Strong walking blues-rock pulse", 116,
+            hits(0, 7, 8, 11), hits(4, 12), hits(0, 2, 4, 6, 8, 10, 12, 14),
+            swing = 15)
     )
 }
 
