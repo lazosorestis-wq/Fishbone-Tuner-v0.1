@@ -52,7 +52,36 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Red, background = Background, surface = Surface)) {
-                TunerScreen()
+                FishboneApp()
+            }
+        }
+    }
+}
+
+@Composable
+private fun FishboneApp() {
+    var selectedTab by remember { mutableIntStateOf(0) }
+    Column(
+        Modifier.fillMaxSize().background(Background).statusBarsPadding().navigationBarsPadding()
+    ) {
+        Box(Modifier.weight(1f)) {
+            if (selectedTab == 0) TunerScreen() else RhythmScreen()
+        }
+        Row(
+            Modifier.fillMaxWidth().background(Surface).padding(horizontal = 18.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            listOf("TUNER", "RHYTHM").forEachIndexed { index, title ->
+                val selected = selectedTab == index
+                Box(
+                    Modifier.weight(1f).height(48.dp)
+                        .background(if (selected) Red else Background, RoundedCornerShape(12.dp))
+                        .clickable { selectedTab = index },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(title, color = Color.White, fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp, letterSpacing = 1.sp)
+                }
             }
         }
     }
@@ -95,7 +124,7 @@ private fun TunerScreen() {
     val inTune = cents != null && abs(cents) <= 3.0
 
     Column(
-        modifier = Modifier.fillMaxSize().background(Background).statusBarsPadding().navigationBarsPadding().padding(20.dp),
+        modifier = Modifier.fillMaxSize().background(Background).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -103,7 +132,7 @@ private fun TunerScreen() {
             Spacer(Modifier.width(10.dp))
             Text("FISHBONE", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
             Spacer(Modifier.weight(1f))
-            Text("TUNER · v0.2", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
+            Text("TUNER · v0.3", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
         }
         Spacer(Modifier.height(26.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
