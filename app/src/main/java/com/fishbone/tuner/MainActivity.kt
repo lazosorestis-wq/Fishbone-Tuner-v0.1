@@ -192,6 +192,7 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
                     fontSize = 23.sp, color = Muted)
             }
         }
+        Spacer(Modifier.height(if(compact) 28.dp else 22.dp))
         TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune, compact)
         Spacer(Modifier.height(4.dp))
         Canvas(Modifier.fillMaxWidth().height(if(compact) 14.dp else 23.dp)) {
