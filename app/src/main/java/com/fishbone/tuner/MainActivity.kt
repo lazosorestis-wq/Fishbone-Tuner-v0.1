@@ -7,6 +7,8 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -122,18 +124,17 @@ private fun TunerScreen() {
     val cents = if (pitch != null && targetMidi != null) Tunings.cents(pitch!!, targetMidi) else null
     val meterCents = cents?.coerceIn(-50.0, 50.0) ?: 0.0
     val inTune = cents != null && abs(cents) <= 3.0
+    val animatedCents by animateFloatAsState(
+        targetValue = meterCents.toFloat(),
+        animationSpec = tween(durationMillis = 160),
+        label = "Tuning needle"
+    )
 
     Column(
         modifier = Modifier.fillMaxSize().background(Background).padding(20.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("◢", fontSize = 28.sp, color = Red, fontWeight = FontWeight.Black)
-            Spacer(Modifier.width(10.dp))
-            Text("FISHBONE", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-            Spacer(Modifier.weight(1f))
-            Text("TUNER · v0.3", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
-        }
+        FishboneHeader("TUNER · v0.4")
         Spacer(Modifier.height(26.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             Column {
@@ -160,7 +161,7 @@ private fun TunerScreen() {
             Text(pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) } ?: "Play a string", fontSize = 17.sp, color = Muted)
             if (targetMidi != null) Text("TARGET  %.2f Hz".format(java.util.Locale.US, Tunings.freq(targetMidi)), fontSize = 11.sp, color = Muted, letterSpacing = 1.sp)
             Spacer(Modifier.height(22.dp))
-            TuningMeter(meterCents, listening && pitch != null, inTune)
+            TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune)
             Spacer(Modifier.height(12.dp))
             Text(
                 when {

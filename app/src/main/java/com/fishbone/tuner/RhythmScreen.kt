@@ -1,10 +1,13 @@
 package com.fishbone.tuner
 
+import android.os.SystemClock
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
@@ -24,6 +27,7 @@ import com.fishbone.tuner.audio.RhythmEngine
 import com.fishbone.tuner.audio.RhythmMode
 import com.fishbone.tuner.audio.RhythmSettings
 import kotlin.math.roundToInt
+import kotlinx.coroutines.delay
 
 private val RhythmBackground = Color(0xFF101114)
 private val RhythmSurface = Color(0xFF1A1C21)
@@ -43,6 +47,8 @@ fun RhythmScreen() {
     var swing by remember { mutableIntStateOf(0) }
     var volume by remember { mutableFloatStateOf(0.7f) }
     var playing by remember { mutableStateOf(false) }
+    var visibleBeat by remember { mutableIntStateOf(-1) }
+    val tapHistory = remember { ArrayDeque<Long>() }
 
     val settings = RhythmSettings(mode, bpm, meter, groove, swing, volume)
     LaunchedEffect(settings) { engine.update(settings) }
@@ -61,19 +67,27 @@ fun RhythmScreen() {
         }
     }
 
+    // A display-only pulse; audio timing remains driven by AudioTrack.
+    LaunchedEffect(playing, bpm, meter, mode) {
+        if (!playing) {
+            visibleBeat = -1
+        } else {
+            var index = 0
+            val beats = if (mode == RhythmMode.METRONOME) meter else 4
+            while (true) {
+                visibleBeat = index % beats
+                delay((60_000.0 / bpm).toLong())
+                index++
+            }
+        }
+    }
+
     Column(
         modifier = Modifier.fillMaxSize().background(RhythmBackground)
             .verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("◢", fontSize = 28.sp, color = RhythmRed, fontWeight = FontWeight.Black)
-            Spacer(Modifier.width(10.dp))
-            Text("FISHBONE", color = Color.White, fontSize = 20.sp,
-                fontWeight = FontWeight.Black, letterSpacing = 2.sp)
-            Spacer(Modifier.weight(1f))
-            Text("RHYTHM · v0.3", color = RhythmMuted, fontSize = 12.sp)
-        }
+        FishboneHeader("RHYTHM · v0.4")
         Spacer(Modifier.height(22.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             RhythmModeButton("METRONOME", mode == RhythmMode.METRONOME, Modifier.weight(1f)) {
@@ -108,10 +122,47 @@ fun RhythmScreen() {
                 valueRange = 40f..240f,
                 colors = SliderDefaults.colors(thumbColor = RhythmRed, activeTrackColor = RhythmRed)
             )
-            Text("40–240 BPM · Tempo changes at next bar",
+            OutlinedButton(
+                onClick = {
+                    val time = SystemClock.elapsedRealtime()
+                    if (tapHistory.isNotEmpty() && time - tapHistory.last() > 2000L) {
+                        tapHistory.clear()
+                    }
+                    tapHistory.addLast(time)
+                    while (tapHistory.size > 6) tapHistory.removeFirst()
+                    if (tapHistory.size >= 2) {
+                        val intervals = tapHistory.zipWithNext { a, b -> b - a }
+                            .filter { it in 250L..1500L }
+                        if (intervals.isNotEmpty()) {
+                            bpm = (60_000.0 / intervals.average()).roundToInt().coerceIn(40, 240)
+                        }
+                    }
+                },
+                border = androidx.compose.foundation.BorderStroke(1.dp, RhythmRed),
+                modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+                shape = RoundedCornerShape(11.dp)
+            ) { Text("TAP TEMPO", color = RhythmRed, fontWeight = FontWeight.Bold, letterSpacing = 1.sp) }
+            Text("40–240 BPM · Changes take effect at the next bar",
                 fontSize = 11.sp, color = RhythmMuted)
         }
 
+        Spacer(Modifier.height(14.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().height(28.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            repeat(if (mode == RhythmMode.METRONOME) meter else 4) { index ->
+                val active = playing && index == visibleBeat
+                Box(
+                    Modifier.padding(horizontal = 6.dp).size(if (active) 18.dp else 11.dp)
+                        .background(
+                            if (active) RhythmRed else RhythmOutline,
+                            CircleShape
+                        )
+                )
+            }
+        }
         Spacer(Modifier.height(16.dp))
         if (mode == RhythmMode.METRONOME) {
             Text("TIME SIGNATURE", Modifier.fillMaxWidth(),
