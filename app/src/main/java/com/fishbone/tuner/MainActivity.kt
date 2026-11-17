@@ -124,6 +124,7 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
     var pitch by remember { mutableStateOf<Double?>(null) }
     var preset by remember { mutableStateOf(Tunings.all.first()) }
     var showPresets by remember { mutableStateOf(false) }
+    var showStrings by remember { mutableStateOf(false) }
     var selectedString by remember { mutableIntStateOf(-1) } // -1 = chromatic/automatic
     val engine = remember { TunerEngine(scope) { pitch = it } }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
@@ -147,6 +148,7 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
     val cents = if (pitch != null && targetMidi != null) Tunings.cents(pitch!!, targetMidi) else null
     val meterCents = cents?.coerceIn(-50.0, 50.0) ?: 0.0
     val inTune = cents != null && abs(cents) <= 3.0
+    val displayMidi = targetMidi ?: preset.strings.firstOrNull()?.midi
     val animatedCents by animateFloatAsState(
         targetValue = meterCents.toFloat(),
         animationSpec = tween(durationMillis = 160),
@@ -160,34 +162,36 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         FishboneHeader("")
-        Spacer(Modifier.height(13.dp))
+        Spacer(Modifier.height(8.dp))
         // Larger centered note and adjacent semitones, as in the approved design.
-        Box(Modifier.fillMaxWidth().height(132.dp)) {
-            val name = targetMidi?.let(Tunings::name) ?: "—"
+        Box(Modifier.fillMaxWidth().height(108.dp)) {
+            val name = displayMidi?.let(Tunings::name) ?: "—"
             Column(Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(name,
                     color = if (inTune) Green else Color.White,
-                    fontSize = if (name.length > 3) 76.sp else 88.sp,
+                    fontSize = if (name.length > 3) 68.sp else 78.sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 92.sp,
+                    lineHeight = 82.sp,
                     textAlign = TextAlign.Center)
                 Text(
-                    pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) } ?: "Play a string",
+                    pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) }
+                        ?: displayMidi?.let { "TARGET · %.2f Hz".format(java.util.Locale.US, Tunings.freq(it)) }
+                        ?: "Play a string", 
                     color = Color(0xFFDFDBDF), fontSize = 17.sp)
             }
-            if (targetMidi != null) {
-                Text(Tunings.name(targetMidi - 1),
+            if (displayMidi != null) {
+                Text(Tunings.name(displayMidi - 1),
                     Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
                     fontSize = 23.sp, color = Muted)
-                Text(Tunings.name(targetMidi + 1),
+                Text(Tunings.name(displayMidi + 1),
                     Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
                     fontSize = 23.sp, color = Muted)
             }
         }
         TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune)
         Spacer(Modifier.height(4.dp))
-        Canvas(Modifier.fillMaxWidth().height(34.dp)) {
+        Canvas(Modifier.fillMaxWidth().height(23.dp)) {
             val y = size.height / 2f
             val mid = size.width / 2f
             drawLine(Color(0xFF3D4044), Offset(0f,y),Offset(size.width,y),1.dp.toPx())
@@ -216,10 +220,10 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
         Text(cents?.let { "%+.1f cents".format(java.util.Locale.US, it) } ?: "— cents",
             color = Color(0xFFD5D5D5), fontSize = 13.sp)
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(9.dp))
         val tileShape = RoundedCornerShape(11.dp)
         Row(
-            Modifier.fillMaxWidth().height(53.dp)
+            Modifier.fillMaxWidth().height(49.dp)
                 .background(Brush.verticalGradient(listOf(Color(0xFF262528),Color(0xFF121113))),tileShape)
                 .border(1.dp, Color(0xFF383338),tileShape)
                 .clickable { showPresets = true }.padding(horizontal=14.dp),
@@ -232,26 +236,28 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
             Text("⌄",color=Color.White,fontSize=22.sp)
         }
 
-        Spacer(Modifier.height(15.dp))
-        Row(
-            Modifier.fillMaxWidth(),
-            horizontalArrangement=Arrangement.spacedBy(4.dp)
-        ) {
-            StringChip("AUTO", selectedString == -1, Modifier.weight(1.20f)) { selectedString = -1 }
-            preset.strings.forEachIndexed { index, note ->
-                StringChip(note.label, selectedString == index, Modifier.weight(1f)) {
-                    selectedString = index
+        if (showStrings) {
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                StringChip("AUTO", selectedString == -1, Modifier.weight(1.20f)) {
+                    selectedString = -1
+                    showStrings = false
+                }
+                preset.strings.forEachIndexed { index, note ->
+                    StringChip(note.label, selectedString == index, Modifier.weight(1f)) {
+                        selectedString = index
+                        showStrings = false
+                    }
                 }
             }
         }
-
-        Spacer(Modifier.height(15.dp))
+        Spacer(Modifier.height(10.dp))
         OutlinedButton(
             onClick = {
                 if (!hasPermission) permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 else listening = !listening
             },
-            modifier = Modifier.fillMaxWidth().height(52.dp),
+            modifier = Modifier.fillMaxWidth().height(46.dp),
             shape = RoundedCornerShape(12.dp),
             border = androidx.compose.foundation.BorderStroke(1.dp, Red),
             colors = ButtonDefaults.outlinedButtonColors(
@@ -304,7 +310,7 @@ private fun StringChip(label: String, selected: Boolean, modifier: Modifier, onC
 
 @Composable
 private fun TuningMeter(cents: Double, active: Boolean, inTune: Boolean) {
-    Canvas(modifier = Modifier.fillMaxWidth().height(176.dp)) {
+    Canvas(modifier = Modifier.fillMaxWidth().height(136.dp)) {
         val cx = size.width / 2f
         val cy = size.height * 0.91f
         val radius = minOf(size.width * 0.46f, size.height * 0.88f)
