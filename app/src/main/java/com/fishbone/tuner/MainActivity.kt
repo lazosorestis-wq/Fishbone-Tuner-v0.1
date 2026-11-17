@@ -141,7 +141,7 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
     }
 
     // Manual mode compares against the chosen string; automatic mode chooses nearest chromatic note.
-    val targetMidi = if (selectedString >= 0) preset.strings[selectedString].midi else pitch?.let(Tunings::nearestMidi)
+    val targetMidi = if (selectedString >= 0) preset.strings.getOrNull(selectedString)?.midi else pitch?.let(Tunings::nearestMidi)
     val cents = if (pitch != null && targetMidi != null) Tunings.cents(pitch!!, targetMidi) else null
     val meterCents = cents?.coerceIn(-50.0, 50.0) ?: 0.0
     val inTune = cents != null && abs(cents) <= 3.0
