@@ -43,16 +43,16 @@ fun FishboneHeader(section: String) {
                 bitmap = logo,
                 contentDescription = "Fishbone Abyss metallic emblem",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.width(224.dp).height(72.dp)
+                modifier = Modifier.width(202.dp).height(59.dp)
             )
         } else {
             Text("FISHBONE", fontSize = 26.sp, color = Color(0xFFE0E0E0),
                 fontWeight = FontWeight.Black, letterSpacing = 3.sp)
         }
-        Text("T U N E R", color = DarkRed, fontSize = 12.sp,
+        Text("T U N E R", color = DarkRed, fontSize = 11.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
-        Spacer(Modifier.height(8.dp))
-        Canvas(Modifier.fillMaxWidth().height(9.dp)) {
+        Spacer(Modifier.height(5.dp))
+        Canvas(Modifier.fillMaxWidth().height(7.dp)) {
             val cy = size.height / 2
             val mid = size.width / 2
             drawLine(DarkRed.copy(alpha=0.75f), Offset(0f,cy), Offset(mid-9.dp.toPx(),cy), strokeWidth=1.dp.toPx())
