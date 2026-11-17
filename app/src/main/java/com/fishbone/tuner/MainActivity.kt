@@ -29,6 +29,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.fishbone.tuner.audio.TunerEngine
 import com.fishbone.tuner.audio.Tunings
 import kotlinx.coroutines.launch
@@ -58,6 +61,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun TunerScreen() {
     val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
     var hasPermission by remember {
         mutableStateOf(ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED)
@@ -71,6 +75,13 @@ private fun TunerScreen() {
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
         hasPermission = allowed
         if (allowed) listening = true
+    }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_STOP) listening = false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
     DisposableEffect(listening, hasPermission) {
         if (listening && hasPermission) engine.start() else engine.stop()
@@ -92,7 +103,7 @@ private fun TunerScreen() {
             Spacer(Modifier.width(10.dp))
             Text("FISHBONE", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Black, letterSpacing = 2.sp)
             Spacer(Modifier.weight(1f))
-            Text("TUNER", color = Muted, fontSize = 12.sp, letterSpacing = 2.sp)
+            Text("TUNER · v0.2", color = Muted, fontSize = 12.sp, letterSpacing = 1.sp)
         }
         Spacer(Modifier.height(26.dp))
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -118,6 +129,7 @@ private fun TunerScreen() {
                 textAlign = TextAlign.Center
             )
             Text(pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) } ?: "Play a string", fontSize = 17.sp, color = Muted)
+            if (targetMidi != null) Text("TARGET  %.2f Hz".format(java.util.Locale.US, Tunings.freq(targetMidi)), fontSize = 11.sp, color = Muted, letterSpacing = 1.sp)
             Spacer(Modifier.height(22.dp))
             TuningMeter(meterCents, listening && pitch != null, inTune)
             Spacer(Modifier.height(12.dp))
