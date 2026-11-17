@@ -226,14 +226,19 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
             Modifier.fillMaxWidth().height(49.dp)
                 .background(Brush.verticalGradient(listOf(Color(0xFF262528),Color(0xFF121113))),tileShape)
                 .border(1.dp, Color(0xFF383338),tileShape)
-                .clickable { showPresets = true }.padding(horizontal=14.dp),
+                .padding(horizontal=13.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("♩", color = Color.White, fontSize=22.sp)
-            Spacer(Modifier.width(12.dp))
-            Text(preset.title, color=Color.White, fontSize=14.sp, fontWeight=FontWeight.Medium)
-            Spacer(Modifier.weight(1f))
-            Text("⌄",color=Color.White,fontSize=22.sp)
+            Text("♩", color=Color.White,fontSize=21.sp)
+            Spacer(Modifier.width(9.dp))
+            Text(preset.title + "  ▾",
+                modifier=Modifier.weight(1f).fillMaxHeight().clickable {showPresets=true}
+                    .wrapContentHeight(Alignment.CenterVertically),
+                color=Color.White,fontSize=12.sp,fontWeight=FontWeight.Medium,maxLines=1)
+            Text((preset.strings.getOrNull(selectedString)?.label ?: "AUTO") + "  ▾",
+                modifier=Modifier.clickable {showStrings=!showStrings}
+                    .padding(horizontal=4.dp,vertical=8.dp),
+                color=Red,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1)
         }
 
         if (showStrings) {
