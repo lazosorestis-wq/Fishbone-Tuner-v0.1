@@ -65,8 +65,15 @@ jobs:
             adb shell am start -n com.fishbone.tuner/.MainActivity
             sleep 3
             adb shell pidof com.fishbone.tuner
+            adb exec-out screencap -p > app/build/outputs/apk/debug/emulator-tuner.png
 
 
+
+      - name: Upload emulator screenshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: Fishbone-Tuner-Preview
+          path: app/build/outputs/apk/debug/emulator-tuner.png
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
