@@ -161,7 +161,7 @@ class RhythmEngine(private val scope: CoroutineScope) {
     private fun renderBar(input: RhythmSettings): ShortArray {
         val bpm = input.bpm.coerceIn(40, 240)
         val framesPerBeat = SAMPLE_RATE * 60.0 / bpm
-        val beats = if (input.mode == RhythmMode.METRONOME) input.meter.coerceIn(3, 6) else 4
+        val beats = if (input.mode == RhythmMode.METRONOME) input.meter.coerceIn(2, 6) else 4
         val frames = (beats * framesPerBeat).roundToInt().coerceAtLeast(1)
         val mix = FloatArray(frames)
         if (input.mode == RhythmMode.METRONOME) {
