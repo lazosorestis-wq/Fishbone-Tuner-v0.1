@@ -2,6 +2,9 @@
 name: Build Fishbone Tuner APK
 
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 jobs:
@@ -59,6 +62,9 @@ jobs:
           script: |
             adb install -r app/build/outputs/apk/debug/app-debug.apk
             adb shell pm path com.fishbone.tuner
+            adb shell am start -n com.fishbone.tuner/.MainActivity
+            sleep 3
+            adb shell pidof com.fishbone.tuner
 
 
 
