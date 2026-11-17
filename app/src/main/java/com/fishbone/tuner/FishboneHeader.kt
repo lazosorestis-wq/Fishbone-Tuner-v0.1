@@ -24,7 +24,7 @@ private val DarkRed = Color(0xFFD61323)
 
 /** Centered metallic emblem, matching the approved three-phone UI concept. */
 @Composable
-fun FishboneHeader(section: String) {
+fun FishboneHeader(section: String, compact: Boolean = false) {
     val context = LocalContext.current
     val logo = remember(context) {
         runCatching {
@@ -43,16 +43,16 @@ fun FishboneHeader(section: String) {
                 bitmap = logo,
                 contentDescription = "Fishbone Abyss metallic emblem",
                 contentScale = ContentScale.Fit,
-                modifier = Modifier.width(202.dp).height(59.dp)
+                modifier = Modifier.width(if(compact) 169.dp else 202.dp).height(if(compact) 43.dp else 59.dp)
             )
         } else {
             Text("FISHBONE", fontSize = 26.sp, color = Color(0xFFE0E0E0),
                 fontWeight = FontWeight.Black, letterSpacing = 3.sp)
         }
-        Text("T U N E R", color = DarkRed, fontSize = 11.sp,
+        Text("T U N E R", color = DarkRed, fontSize = if(compact) 10.sp else 11.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 3.sp)
-        Spacer(Modifier.height(5.dp))
-        Canvas(Modifier.fillMaxWidth().height(7.dp)) {
+        Spacer(Modifier.height(if(compact) 3.dp else 5.dp))
+        Canvas(Modifier.fillMaxWidth().height(if(compact) 6.dp else 7.dp)) {
             val cy = size.height / 2
             val mid = size.width / 2
             drawLine(DarkRed.copy(alpha=0.75f), Offset(0f,cy), Offset(mid-9.dp.toPx(),cy), strokeWidth=1.dp.toPx())
