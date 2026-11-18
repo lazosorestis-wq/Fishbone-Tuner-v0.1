@@ -324,6 +324,18 @@ fun RhythmScreen() {
 }
 
 @Composable
+private fun TempoCircle(label: String, modifier: Modifier, onClick: () -> Unit) {
+    Box(
+        modifier.background(Color(0xFF29282C), CircleShape)
+            .border(1.dp,Color(0xFF666168),CircleShape)
+            .clickable(onClick=onClick),
+        contentAlignment=Alignment.Center
+    ) {
+        Text(label,color=Color.White,fontSize=26.sp)
+    }
+}
+
+@Composable
 private fun RhythmModeButton(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
     Box(
         modifier.background(if (selected) RhythmRed else RhythmSurface, RoundedCornerShape(12.dp))
