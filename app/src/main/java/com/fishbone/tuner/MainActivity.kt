@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import android.view.WindowManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -69,7 +70,21 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun FishboneApp() {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("fishbone_settings", android.content.Context.MODE_PRIVATE) }
     var preset by remember { mutableStateOf(Tunings.all.first()) }
+    var referencePitch by remember { mutableIntStateOf(prefs.getInt("reference_pitch", 440)) }
+    var keepScreenOn by remember { mutableStateOf(prefs.getBoolean("keep_screen_on", false)) }
+    LaunchedEffect(referencePitch, keepScreenOn) {
+        prefs.edit().putInt("reference_pitch", referencePitch)
+            .putBoolean("keep_screen_on", keepScreenOn).apply()
+    }
+    val window = (context as? ComponentActivity)?.window
+    DisposableEffect(keepScreenOn, window) {
+        if (keepScreenOn) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
 
     Column(
         Modifier.fillMaxSize().background(Background)
@@ -77,9 +92,16 @@ private fun FishboneApp() {
     ) {
         Box(Modifier.weight(1f)) {
             when (selectedTab) {
-                0 -> TunerScreen(preset) { preset = it }
+                0 -> TunerScreen(preset, referencePitch) { preset = it }
                 1 -> RhythmScreen()
-                else -> SettingsScreen(preset) { preset = it }
+                else -> SettingsScreen(
+                    preset = preset,
+                    onTuningChange = { preset = it },
+                    referencePitch = referencePitch,
+                    onReferencePitchChange = { referencePitch = it },
+                    keepScreenOn = keepScreenOn,
+                    onKeepScreenOnChange = { keepScreenOn = it }
+                )
             }
         }
         Row(
@@ -113,7 +135,7 @@ private fun FishboneApp() {
 }
 
 @Composable
-private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
+private fun TunerScreen(preset: Tuning, referencePitch: Int, onTuningChange: (Tuning) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -122,7 +144,6 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
     }
     var listening by remember { mutableStateOf(false) }
     var pitch by remember { mutableStateOf<Double?>(null) }
-    var preset by remember { mutableStateOf(Tunings.all.first()) }
     var showPresets by remember { mutableStateOf(false) }
     var showStrings by remember { mutableStateOf(false) }
     var selectedString by remember { mutableIntStateOf(-1) } // -1 = chromatic/automatic
@@ -144,8 +165,8 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
     }
 
     // Manual mode compares against the chosen string; automatic mode chooses nearest chromatic note.
-    val targetMidi = if (selectedString >= 0) preset.strings.getOrNull(selectedString)?.midi else pitch?.let(Tunings::nearestMidi)
-    val cents = if (pitch != null && targetMidi != null) Tunings.cents(pitch!!, targetMidi) else null
+    val targetMidi = if (selectedString >= 0) preset.strings.getOrNull(selectedString)?.midi else pitch?.let { Tunings.nearestMidi(it, referencePitch.toDouble()) }
+    val cents = if (pitch != null && targetMidi != null) Tunings.cents(pitch!!, targetMidi, referencePitch.toDouble()) else null
     val meterCents = cents?.coerceIn(-50.0, 50.0) ?: 0.0
     val inTune = cents != null && abs(cents) <= 3.0
     val displayMidi = targetMidi ?: preset.strings.firstOrNull()?.midi
@@ -158,7 +179,7 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val compact = maxHeight < 700.dp
     Column(
-        modifier = Modifier.fillMaxSize().background(Background)
+        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF170509), Background, Background)))
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 11.dp),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -179,7 +200,7 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
                     textAlign = TextAlign.Center)
                 Text(
                     pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) }
-                        ?: displayMidi?.let { "TARGET · %.2f Hz".format(java.util.Locale.US, Tunings.freq(it)) }
+                        ?: displayMidi?.let { "TARGET · %.2f Hz".format(java.util.Locale.US, Tunings.freq(it, referencePitch.toDouble())) }
                         ?: "Play a string", 
                     color = Color(0xFFDFDBDF), fontSize = 17.sp)
             }
@@ -277,7 +298,7 @@ private fun TunerScreen(preset: Tuning, onTuningChange: (Tuning) -> Unit) {
                 color = Color.White, fontWeight = FontWeight.Bold, letterSpacing=1.sp)
         }
         Spacer(Modifier.height(if(compact) 3.dp else 8.dp))
-        Text("A4 = 440 Hz  ·  OFFLINE", color = Muted, fontSize = 10.sp)
+        Text("A4 = $referencePitch Hz  ·  OFFLINE", color = Muted, fontSize = 10.sp)
         Spacer(Modifier.height(if(compact) 4.dp else 12.dp))
     }
     }
