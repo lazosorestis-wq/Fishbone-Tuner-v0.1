@@ -90,7 +90,7 @@ private fun isolateFishbone(source: Bitmap): Bitmap {
 
 /** Transparent metallic emblem, restrained red title and divider. */
 @Composable
-fun FishboneHeader(section: String = "") {
+fun FishboneHeader(section: String = "", compact: Boolean = false) {
     val context = LocalContext.current
     val logo = remember(context) {
         runCatching {
@@ -109,7 +109,8 @@ fun FishboneHeader(section: String = "") {
             Image(
                 bitmap = logo,
                 contentDescription = "Metallic Fishbone emblem without background",
-                modifier = Modifier.width(218.dp).height(77.dp),
+                modifier = Modifier.width(if (compact) 175.dp else 218.dp)
+                    .height(if (compact) 59.dp else 77.dp),
                 contentScale = ContentScale.Fit
             )
         } else {
@@ -118,7 +119,7 @@ fun FishboneHeader(section: String = "") {
         }
         Text("T U N E R", color = HeaderRed, fontSize = 12.sp,
             fontWeight = FontWeight.Bold, letterSpacing = 2.5.sp)
-        Spacer(Modifier.height(7.dp))
+        Spacer(Modifier.height(if (compact) 3.dp else 7.dp))
         Canvas(Modifier.fillMaxWidth().height(7.dp)) {
             val cy = size.height / 2
             val center = size.width / 2
