@@ -12,6 +12,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -24,8 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
+import android.view.WindowManager
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -36,6 +42,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.fishbone.tuner.audio.TunerEngine
 import com.fishbone.tuner.audio.Tunings
+import com.fishbone.tuner.audio.Tuning
 import kotlinx.coroutines.launch
 import kotlin.math.PI
 import kotlin.math.abs
@@ -43,11 +50,11 @@ import kotlin.math.cos
 import kotlin.math.roundToInt
 import kotlin.math.sin
 
-private val Background = Color(0xFF101114)
-private val Surface = Color(0xFF1A1C21)
-private val Red = Color(0xFFED444D)
-private val Green = Color(0xFF60D694)
-private val Muted = Color(0xFF9A9CA5)
+private val Background = Color(0xFF09090B)
+private val Surface = Color(0xFF151416)
+private val Red = Color(0xFFD91425)
+private val Green = Color(0xFF62F529)
+private val Muted = Color(0xFFA3A0A5)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,26 +70,64 @@ class MainActivity : ComponentActivity() {
 @Composable
 private fun FishboneApp() {
     var selectedTab by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+    val prefs = remember(context) { context.getSharedPreferences("fishbone_settings", android.content.Context.MODE_PRIVATE) }
+    var preset by remember { mutableStateOf(Tunings.all.first()) }
+    var referencePitch by remember { mutableIntStateOf(prefs.getInt("reference_pitch", 440)) }
+    var keepScreenOn by remember { mutableStateOf(prefs.getBoolean("keep_screen_on", false)) }
+    LaunchedEffect(referencePitch, keepScreenOn) {
+        prefs.edit().putInt("reference_pitch", referencePitch)
+            .putBoolean("keep_screen_on", keepScreenOn).apply()
+    }
+    val window = (context as? ComponentActivity)?.window
+    DisposableEffect(keepScreenOn, window) {
+        if (keepScreenOn) window?.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        else window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+
     Column(
-        Modifier.fillMaxSize().background(Background).statusBarsPadding().navigationBarsPadding()
+        Modifier.fillMaxSize().background(Background)
+            .statusBarsPadding().navigationBarsPadding()
     ) {
         Box(Modifier.weight(1f)) {
-            if (selectedTab == 0) TunerScreen() else RhythmScreen()
+            when (selectedTab) {
+                0 -> TunerScreen(preset, referencePitch) { preset = it }
+                1 -> RhythmScreen()
+                else -> SettingsScreen(
+                    preset = preset,
+                    onTuningChange = { preset = it },
+                    referencePitch = referencePitch,
+                    onReferencePitchChange = { referencePitch = it },
+                    keepScreenOn = keepScreenOn,
+                    onKeepScreenOnChange = { keepScreenOn = it }
+                )
+            }
         }
         Row(
-            Modifier.fillMaxWidth().background(Surface).padding(horizontal = 18.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            Modifier.fillMaxWidth().background(Color(0xFF080808))
+                .padding(horizontal = 9.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            listOf("TUNER", "RHYTHM").forEachIndexed { index, title ->
-                val selected = selectedTab == index
-                Box(
-                    Modifier.weight(1f).height(48.dp)
-                        .background(if (selected) Red else Background, RoundedCornerShape(12.dp))
+            listOf("TUNER", "RHYTHM", "SETTINGS").forEachIndexed { index, name ->
+                val active = index == selectedTab
+                val shape = RoundedCornerShape(10.dp)
+                Column(
+                    Modifier.weight(1f).height(66.dp)
+                        .background(
+                            if (active) Brush.verticalGradient(listOf(Color(0xFF65030C),Color(0xFF220004)))
+                            else Brush.verticalGradient(listOf(Color(0xFF232225),Color(0xFF101013))),
+                            shape
+                        )
+                        .border(1.dp, if (active) Red else Color(0xFF333338),shape)
                         .clickable { selectedTab = index },
-                    contentAlignment = Alignment.Center
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Text(title, color = Color.White, fontWeight = FontWeight.Bold,
-                        fontSize = 13.sp, letterSpacing = 1.sp)
+                    FishboneNavIcon(index,if(active) Color.White else Color(0xFFB8B4B9))
+                    Spacer(Modifier.height(3.dp))
+                    Text(name, fontWeight = FontWeight.SemiBold,
+                        fontSize = 10.sp, color = Color.White, letterSpacing = 0.3.sp)
                 }
             }
         }
@@ -90,7 +135,7 @@ private fun FishboneApp() {
 }
 
 @Composable
-private fun TunerScreen() {
+private fun TunerScreen(preset: Tuning, referencePitch: Int, onTuningChange: (Tuning) -> Unit) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val scope = rememberCoroutineScope()
@@ -99,8 +144,8 @@ private fun TunerScreen() {
     }
     var listening by remember { mutableStateOf(false) }
     var pitch by remember { mutableStateOf<Double?>(null) }
-    var preset by remember { mutableStateOf(Tunings.all.first()) }
     var showPresets by remember { mutableStateOf(false) }
+    var showStrings by remember { mutableStateOf(false) }
     var selectedString by remember { mutableIntStateOf(-1) } // -1 = chromatic/automatic
     val engine = remember { TunerEngine(scope) { pitch = it } }
     val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { allowed ->
@@ -120,87 +165,142 @@ private fun TunerScreen() {
     }
 
     // Manual mode compares against the chosen string; automatic mode chooses nearest chromatic note.
-    val targetMidi = if (selectedString >= 0) preset.strings[selectedString].midi else pitch?.let(Tunings::nearestMidi)
-    val cents = if (pitch != null && targetMidi != null) Tunings.cents(pitch!!, targetMidi) else null
+    val targetMidi = if (selectedString >= 0) preset.strings.getOrNull(selectedString)?.midi else pitch?.let { Tunings.nearestMidi(it, referencePitch.toDouble()) }
+    val cents = if (pitch != null && targetMidi != null) Tunings.cents(pitch!!, targetMidi, referencePitch.toDouble()) else null
     val meterCents = cents?.coerceIn(-50.0, 50.0) ?: 0.0
     val inTune = cents != null && abs(cents) <= 3.0
+    val displayMidi = targetMidi ?: preset.strings.firstOrNull()?.midi
     val animatedCents by animateFloatAsState(
         targetValue = meterCents.toFloat(),
         animationSpec = tween(durationMillis = 160),
         label = "Tuning needle"
     )
 
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val compact = maxHeight < 700.dp
     Column(
-        modifier = Modifier.fillMaxSize().background(Background).padding(20.dp),
+        modifier = Modifier.fillMaxSize().background(Brush.verticalGradient(listOf(Color(0xFF170509), Background, Background)))
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 11.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        FishboneHeader("TUNER · v0.4")
-        Spacer(Modifier.height(26.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Column {
-                Text("TUNING", fontSize = 11.sp, color = Muted, letterSpacing = 2.sp)
-                Text(preset.title, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+        FishboneHeader("", compact)
+        Spacer(Modifier.height(if(compact) 3.dp else 8.dp))
+        // Larger centered note and adjacent semitones, as in the approved design.
+        Box(Modifier.fillMaxWidth().height(if(compact) 116.dp else 128.dp)) {
+            val name = displayMidi?.let(Tunings::name) ?: "—"
+            Column(Modifier.align(Alignment.Center),
+                horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(name,
+                    color = if (inTune) Green else Color.White,
+                    fontSize = if (name.length > 3) (if(compact) 55.sp else 67.sp)
+                        else (if(compact) 64.sp else 77.sp),
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = if(compact) 66.sp else 80.sp,
+                    textAlign = TextAlign.Center)
+                Text(
+                    pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) }
+                        ?: displayMidi?.let { "TARGET · %.2f Hz".format(java.util.Locale.US, Tunings.freq(it, referencePitch.toDouble())) }
+                        ?: "Play a string", 
+                    color = Color(0xFFDFDBDF), fontSize = 17.sp)
             }
-            TextButton(onClick = { showPresets = true }) { Text("CHANGE  ▾", color = Red) }
+            if (displayMidi != null) {
+                Text(Tunings.name(displayMidi - 1),
+                    Modifier.align(Alignment.CenterStart).padding(start = 4.dp),
+                    fontSize = 23.sp, color = Muted)
+                Text(Tunings.name(displayMidi + 1),
+                    Modifier.align(Alignment.CenterEnd).padding(end = 4.dp),
+                    fontSize = 23.sp, color = Muted)
+            }
         }
-        Spacer(Modifier.height(16.dp))
-        Column(
-            Modifier.fillMaxWidth().weight(1f).background(Surface, RoundedCornerShape(22.dp)).padding(18.dp),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+        Spacer(Modifier.height(if(compact) 10.dp else 14.dp))
+        TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune, compact)
+        Spacer(Modifier.height(4.dp))
+        Canvas(Modifier.fillMaxWidth().height(if(compact) 14.dp else 23.dp)) {
+            val y = size.height / 2f
+            val mid = size.width / 2f
+            drawLine(Color(0xFF3D4044), Offset(0f,y),Offset(size.width,y),1.dp.toPx())
+            for (i in 0..75) {
+                val x = size.width * i / 75f
+                val dist = kotlin.math.abs(x-mid)/mid
+                val envelope = (1f-dist).coerceAtLeast(0f)
+                val amp = (kotlin.math.abs(kotlin.math.sin(i*1.4)).toFloat() *
+                    kotlin.math.abs(kotlin.math.sin(i*0.37)).toFloat()) *
+                    envelope * size.height * 0.44f
+                drawLine(Color.White.copy(alpha=if(listening)0.75f else 0.3f),
+                    Offset(x,y-amp),Offset(x,y+amp),strokeWidth=1.dp.toPx())
+            }
+        }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            when {
+                !listening -> "MICROPHONE OFF"
+                cents == null -> "LISTENING…"
+                inTune -> "● IN TUNE"
+                cents < 0 -> "↑ TUNE UP"
+                else -> "↓ TUNE DOWN"
+            },
+            color = if (inTune) Green else Muted,
+            fontSize = 12.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.7.sp)
+        Text(cents?.let { "%+.1f cents".format(java.util.Locale.US, it) } ?: "— cents",
+            color = Color(0xFFD5D5D5), fontSize = 13.sp)
+
+        Spacer(Modifier.height(if(compact) 4.dp else 9.dp))
+        val tileShape = RoundedCornerShape(11.dp)
+        Row(
+            Modifier.fillMaxWidth().height(if(compact) 45.dp else 49.dp)
+                .background(Brush.verticalGradient(listOf(Color(0xFF262528),Color(0xFF121113))),tileShape)
+                .border(1.dp, Color(0xFF383338),tileShape)
+                .padding(horizontal=13.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(if (selectedString >= 0) "MANUAL STRING" else "CHROMATIC / AUTO", color = Muted, fontSize = 12.sp, letterSpacing = 1.6.sp)
-            Spacer(Modifier.height(14.dp))
-            Text(
-                targetMidi?.let(Tunings::name) ?: "—",
-                color = if (inTune) Green else Color.White,
-                fontSize = 67.sp,
-                fontWeight = FontWeight.Bold,
-                textAlign = TextAlign.Center
-            )
-            Text(pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) } ?: "Play a string", fontSize = 17.sp, color = Muted)
-            if (targetMidi != null) Text("TARGET  %.2f Hz".format(java.util.Locale.US, Tunings.freq(targetMidi)), fontSize = 11.sp, color = Muted, letterSpacing = 1.sp)
-            Spacer(Modifier.height(22.dp))
-            TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune)
-            Spacer(Modifier.height(12.dp))
-            Text(
-                when {
-                    !listening -> "MICROPHONE OFF"
-                    cents == null -> "LISTENING…"
-                    inTune -> "● IN TUNE"
-                    cents < 0 -> "↑ TUNE UP"
-                    else -> "↓ TUNE DOWN"
-                },
-                color = if (inTune) Green else Muted,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp
-            )
-            Text(cents?.let { "%+.1f cents".format(java.util.Locale.US, it) } ?: "— cents", color = Color.White, fontSize = 18.sp)
+            Text("♩", color=Color.White,fontSize=21.sp)
+            Spacer(Modifier.width(9.dp))
+            Text(preset.title + "  ▾",
+                modifier=Modifier.weight(1f).fillMaxHeight().clickable {showPresets=true}
+                    .wrapContentHeight(Alignment.CenterVertically),
+                color=Color.White,fontSize=12.sp,fontWeight=FontWeight.Medium,maxLines=1)
+            Text((preset.strings.getOrNull(selectedString)?.label ?: "AUTO") + "  ▾",
+                modifier=Modifier.clickable {showStrings=!showStrings}
+                    .padding(horizontal=4.dp,vertical=8.dp),
+                color=Red,fontSize=12.sp,fontWeight=FontWeight.Bold,maxLines=1)
         }
-        Spacer(Modifier.height(18.dp))
-        Text("SELECT STRING", Modifier.fillMaxWidth(), color = Muted, fontSize = 11.sp, letterSpacing = 2.sp)
-        Spacer(Modifier.height(10.dp))
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-            StringChip("AUTO", selectedString == -1, Modifier.weight(1.25f)) { selectedString = -1 }
-            preset.strings.forEachIndexed { index, note ->
-                StringChip(note.label, selectedString == index, Modifier.weight(1f)) { selectedString = index }
+
+        if (showStrings) {
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement=Arrangement.spacedBy(4.dp)) {
+                StringChip("AUTO", selectedString == -1, Modifier.weight(1.20f)) {
+                    selectedString = -1
+                    showStrings = false
+                }
+                preset.strings.forEachIndexed { index, note ->
+                    StringChip(note.label, selectedString == index, Modifier.weight(1f)) {
+                        selectedString = index
+                        showStrings = false
+                    }
+                }
             }
         }
-        Spacer(Modifier.height(18.dp))
-        Button(
+        Spacer(Modifier.height(if(compact) 5.dp else 10.dp))
+        OutlinedButton(
             onClick = {
                 if (!hasPermission) permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                 else listening = !listening
             },
-            colors = ButtonDefaults.buttonColors(containerColor = if (listening) Color(0xFF33363F) else Red),
-            modifier = Modifier.fillMaxWidth().height(56.dp),
-            shape = RoundedCornerShape(14.dp)
+            modifier = Modifier.fillMaxWidth().height(if(compact) 42.dp else 46.dp),
+            shape = RoundedCornerShape(12.dp),
+            border = androidx.compose.foundation.BorderStroke(1.dp, Red),
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = if (listening) Color(0xFF2C080C) else Color(0xFF4C0911)
+            )
         ) {
-            Text(if (listening) "■   STOP LISTENING" else "●   START TUNING", fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+            Text(if (listening) "■  STOP LISTENING" else "●  START TUNING",
+                color = Color.White, fontWeight = FontWeight.Bold, letterSpacing=1.sp)
         }
-        Spacer(Modifier.height(10.dp))
-        Text("A4 = 440 Hz  •  Offline audio processing", color = Muted, fontSize = 11.sp)
+        Spacer(Modifier.height(if(compact) 3.dp else 8.dp))
+        Text("A4 = $referencePitch Hz  ·  OFFLINE", color = Muted, fontSize = 10.sp)
+        Spacer(Modifier.height(if(compact) 4.dp else 12.dp))
+    }
     }
 
     if (showPresets) {
@@ -211,7 +311,7 @@ private fun TunerScreen() {
                 LazyColumn(Modifier.heightIn(max = 420.dp)) {
                     items(Tunings.all) { tuning ->
                         Text(tuning.title, Modifier.fillMaxWidth().clickable {
-                            preset = tuning
+                            onTuningChange(tuning)
                             selectedString = -1
                             showPresets = false
                         }.padding(vertical = 13.dp), fontSize = 15.sp)
@@ -225,42 +325,71 @@ private fun TunerScreen() {
 
 @Composable
 private fun StringChip(label: String, selected: Boolean, modifier: Modifier, onClick: () -> Unit) {
-    Box(
-        modifier = modifier.height(46.dp)
-            .background(if (selected) Red else Surface, RoundedCornerShape(9.dp))
-            .border(1.dp, if (selected) Red else Color(0xFF33353A), RoundedCornerShape(9.dp))
+    val shape = RoundedCornerShape(8.dp)
+    Column(
+        modifier = modifier.height(40.dp)
+            .background(if (selected) Color(0xFF4A070D) else Surface, shape)
+            .border(1.dp, if (selected) Red else Color(0xFF343338), shape)
             .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Text(label, color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(label, color = if (selected) Color.White else Muted,
+            fontSize = 10.sp, fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }
 
 @Composable
-private fun TuningMeter(cents: Double, active: Boolean, inTune: Boolean) {
-    Canvas(modifier = Modifier.fillMaxWidth().height(150.dp)) {
+private fun TuningMeter(cents: Double, active: Boolean, inTune: Boolean, compact: Boolean = false) {
+    Canvas(modifier = Modifier.fillMaxWidth().height(if(compact) 108.dp else 136.dp)) {
         val cx = size.width / 2f
-        val cy = size.height * 0.88f
-        val radius = minOf(size.width * 0.43f, size.height * 0.78f)
-        drawArc(Color(0xFF42454D), startAngle = 180f, sweepAngle = 180f, useCenter = false,
-            topLeft = Offset(cx - radius, cy - radius), size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-            style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round))
-        drawArc(Green, startAngle = 262f, sweepAngle = 16f, useCenter = false,
-            topLeft = Offset(cx - radius, cy - radius), size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-            style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round))
+        val cy = size.height * 0.91f
+        val radius = minOf(size.width * 0.46f, size.height * 0.88f)
+        val radiusSize = androidx.compose.ui.geometry.Size(radius * 2, radius * 2)
+        val arcOrigin = Offset(cx-radius,cy-radius)
+        drawArc(Color(0xFF77787E), 190f, 160f, false,
+            arcOrigin, radiusSize, style=Stroke(width=1.5.dp.toPx()))
+        drawArc(Red.copy(alpha=0.9f),190f,7f,false,
+            arcOrigin,radiusSize,style=Stroke(width=3.dp.toPx()))
+        drawArc(Red.copy(alpha=0.9f),343f,7f,false,
+            arcOrigin,radiusSize,style=Stroke(width=3.dp.toPx()))
+        drawArc(Green.copy(alpha=0.7f),266f,8f,false,
+            arcOrigin,radiusSize,style=Stroke(width=4.dp.toPx()))
         for (i in -10..10) {
-            val angle = Math.toRadians((270.0 + i * 9.0))
-            val outer = radius - 18.dp.toPx()
-            val inner = outer - if (i % 5 == 0) 13.dp.toPx() else 7.dp.toPx()
-            val direction = Offset(cos(angle).toFloat(), sin(angle).toFloat())
-            drawLine(if (i == 0) Green else Muted, Offset(cx + direction.x * inner, cy + direction.y * inner),
-                Offset(cx + direction.x * outer, cy + direction.y * outer), strokeWidth = if (i % 5 == 0) 2.dp.toPx() else 1.dp.toPx())
+            val deg = 270 + i*8.0
+            val radians = deg*PI/180.0
+            val dir = Offset(cos(radians).toFloat(),sin(radians).toFloat())
+            val outer = radius-2.dp.toPx()
+            val inner = outer-(if (i%5==0) 12.dp.toPx() else 7.dp.toPx())
+            val color = if(i==0) Green else Color(0xFFD0CDD0)
+            drawLine(color,
+                Offset(cx+dir.x*inner,cy+dir.y*inner),
+                Offset(cx+dir.x*outer,cy+dir.y*outer),
+                strokeWidth= if(i%5==0) 1.7.dp.toPx() else 1.dp.toPx())
         }
-        val angle = (270 + cents / 50 * 90) * PI / 180.0
-        drawLine(if (active && inTune) Green else if (active) Red else Muted,
-            start = Offset(cx, cy),
-            end = Offset(cx + cos(angle).toFloat() * (radius - 30.dp.toPx()), cy + sin(angle).toFloat() * (radius - 30.dp.toPx())),
-            strokeWidth = 3.dp.toPx(), cap = StrokeCap.Round)
-        drawCircle(if (active) Red else Muted, radius = 6.dp.toPx(), center = Offset(cx, cy))
+        // Needle: dim when stopped, fluorescent green when detecting pitch.
+        val radians = (270.0+cents.coerceIn(-50.0,50.0)/50.0*80.0)*PI/180.0
+        val end = Offset(
+            cx+cos(radians).toFloat()*(radius-24.dp.toPx()),
+            cy+sin(radians).toFloat()*(radius-24.dp.toPx()))
+        val needle = if(active) Green else Color(0xFF69816A)
+        drawLine(needle.copy(alpha=0.22f),Offset(cx,cy),end,
+            strokeWidth=11.dp.toPx(),cap=StrokeCap.Round)
+        drawLine(needle,Offset(cx,cy),end,
+            strokeWidth=3.dp.toPx(),cap=StrokeCap.Round)
+        drawCircle(needle, radius=7.dp.toPx(),center=Offset(cx,cy),
+            style=Stroke(width=2.dp.toPx()))
+        for (n in listOf(-50,-25,0,25,50)) {
+            val r = (270.0+n/50.0*80.0)*PI/180.0
+            val tx = cx+cos(r).toFloat()*(radius+16.dp.toPx())
+            val ty = cy+sin(r).toFloat()*(radius+16.dp.toPx())
+            drawContext.canvas.nativeCanvas.drawText(
+                if(n>0) "+$n" else n.toString(), tx,ty,
+                android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                    color=android.graphics.Color.LTGRAY
+                    textAlign=android.graphics.Paint.Align.CENTER
+                    textSize=12.sp.toPx()
+                })
+        }
     }
 }

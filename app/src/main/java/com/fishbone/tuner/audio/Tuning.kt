@@ -19,11 +19,13 @@ object Tunings {
         Tuning("Bass · Drop D", notes("D1" to 26, "A1" to 33, "D2" to 38, "G2" to 43)),
         Tuning("Bass · 5-string", notes("B0" to 23, "E1" to 28, "A1" to 33, "D2" to 38, "G2" to 43))
     )
-    fun freq(midi: Int) = 440.0 * 2.0.pow((midi - 69) / 12.0)
-    fun nearestMidi(hz: Double): Int = (69 + 12 * log2(hz / 440.0)).roundToInt()
+    fun freq(midi: Int, referenceHz: Double = 440.0) = referenceHz * 2.0.pow((midi - 69) / 12.0)
+    fun nearestMidi(hz: Double, referenceHz: Double = 440.0): Int =
+        (69 + 12 * log2(hz / referenceHz)).roundToInt()
     fun name(midi: Int): String {
         val names = listOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
         return names[Math.floorMod(midi, 12)] + (Math.floorDiv(midi, 12) - 1)
     }
-    fun cents(hz: Double, midi: Int): Double = 1200 * log2(hz / freq(midi))
+    fun cents(hz: Double, midi: Int, referenceHz: Double = 440.0): Double =
+        1200 * log2(hz / freq(midi, referenceHz))
 }
