@@ -187,16 +187,16 @@ private fun TunerScreen(preset: Tuning, referencePitch: Int, onTuningChange: (Tu
         FishboneHeader("", compact)
         Spacer(Modifier.height(if(compact) 3.dp else 8.dp))
         // Larger centered note and adjacent semitones, as in the approved design.
-        Box(Modifier.fillMaxWidth().height(if(compact) 90.dp else 108.dp)) {
+        Box(Modifier.fillMaxWidth().height(if(compact) 116.dp else 128.dp)) {
             val name = displayMidi?.let(Tunings::name) ?: "—"
             Column(Modifier.align(Alignment.Center),
                 horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(name,
                     color = if (inTune) Green else Color.White,
-                    fontSize = if (name.length > 3) (if(compact) 60.sp else 68.sp)
-                        else (if(compact) 70.sp else 78.sp),
+                    fontSize = if (name.length > 3) (if(compact) 55.sp else 67.sp)
+                        else (if(compact) 64.sp else 77.sp),
                     fontWeight = FontWeight.Bold,
-                    lineHeight = if(compact) 72.sp else 82.sp,
+                    lineHeight = if(compact) 66.sp else 80.sp,
                     textAlign = TextAlign.Center)
                 Text(
                     pitch?.let { "%.2f Hz".format(java.util.Locale.US, it) }
@@ -213,7 +213,7 @@ private fun TunerScreen(preset: Tuning, referencePitch: Int, onTuningChange: (Tu
                     fontSize = 23.sp, color = Muted)
             }
         }
-        Spacer(Modifier.height(if(compact) 28.dp else 22.dp))
+        Spacer(Modifier.height(if(compact) 10.dp else 14.dp))
         TuningMeter(animatedCents.toDouble(), listening && pitch != null, inTune, compact)
         Spacer(Modifier.height(4.dp))
         Canvas(Modifier.fillMaxWidth().height(if(compact) 14.dp else 23.dp)) {
