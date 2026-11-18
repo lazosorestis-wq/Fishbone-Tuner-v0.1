@@ -66,6 +66,15 @@ jobs:
             sleep 3
             adb shell pidof com.fishbone.tuner
             adb exec-out screencap -p > app/build/outputs/apk/debug/emulator-tuner.png
+            SCREEN_SIZE=$(adb shell wm size | tail -n 1 | awk '{print $3}' | tr -d '\r')
+            WIDTH="${SCREEN_SIZE%x*}"
+            HEIGHT="${SCREEN_SIZE#*x}"
+            adb shell input tap "$((WIDTH / 2))" "$((HEIGHT - 65))"
+            sleep 2
+            adb exec-out screencap -p > app/build/outputs/apk/debug/emulator-rhythm.png
+            adb shell input tap "$((WIDTH * 5 / 6))" "$((HEIGHT - 65))"
+            sleep 2
+            adb exec-out screencap -p > app/build/outputs/apk/debug/emulator-settings.png
 
 
 
@@ -73,7 +82,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Fishbone-Tuner-Preview
-          path: app/build/outputs/apk/debug/emulator-tuner.png
+          path: app/build/outputs/apk/debug/emulator-*.png
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
