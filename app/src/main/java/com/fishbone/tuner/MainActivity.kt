@@ -109,7 +109,7 @@ private fun FishboneApp() {
                 .padding(horizontal = 9.dp, vertical = 8.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp)
         ) {
-            listOf("TUNER", "METRONOME", "SETTINGS").forEachIndexed { index, name ->
+            listOf("TUNER", "RHYTHM", "SETTINGS").forEachIndexed { index, name ->
                 val active = index == selectedTab
                 val shape = RoundedCornerShape(10.dp)
                 Column(
@@ -124,8 +124,8 @@ private fun FishboneApp() {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center
                 ) {
-                    Text(listOf("♩","♬","⚙")[index],
-                        fontSize = 24.sp, color = if(active) Color.White else Color(0xFFD8D8D8))
+                    FishboneNavIcon(index,if(active) Color.White else Color(0xFFB8B4B9))
+                    Spacer(Modifier.height(3.dp))
                     Text(name, fontWeight = FontWeight.SemiBold,
                         fontSize = 10.sp, color = Color.White, letterSpacing = 0.3.sp)
                 }
