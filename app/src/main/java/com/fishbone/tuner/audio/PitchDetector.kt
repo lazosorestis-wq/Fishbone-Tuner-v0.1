@@ -56,7 +56,6 @@ class PitchDetector(private val sampleRate: Int = 44100) {
         var cumulative = 0.0
         var bestTau = -1
         var bestScore = Double.POSITIVE_INFINITY
-        var selectedTau = -1
         for (tau in 1..maxTau) {
             var difference = 0.0
             for (i in 0 until comparisons) {
@@ -74,14 +73,12 @@ class PitchDetector(private val sampleRate: Int = 44100) {
                 bestScore = score
                 bestTau = tau
             }
-            // The earliest confident minimum is usually the fundamental.
-            if (score < CONFIDENT_THRESHOLD) {
-                selectedTau = tau
-                break
-            }
         }
 
-        var tau = if (selectedTau >= 0) selectedTau else bestTau
+        // Search after all lag scores are calculated; this is essential for
+        // local-minimum refinement (otherwise the next CMNDF slot is empty).
+        val selectedTau = (minTau..maxTau).firstOrNull { cmndf[it] < CONFIDENT_THRESHOLD }
+        var tau = selectedTau ?: bestTau
         if (tau < 0 || cmndf[tau] > WEAK_THRESHOLD) return null
         while (tau + 1 <= maxTau && cmndf[tau + 1] < cmndf[tau]) tau++
 
